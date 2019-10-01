@@ -14,6 +14,7 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 from matplotlib.ticker import ScalarFormatter
+from mpl_toolkits.mplot3d import Axes3D
 
 #
 # Set up environment
@@ -76,18 +77,40 @@ for predictors, label in dataset.take(5):
 
 #print(tft.pca(pd.DataFrame(df.text.tolist()).to_numpy()))
 data = pd.DataFrame(df.text.tolist()).to_numpy()
-eigen_values, eigen_vectors = tf.linalg.eigh(tf.tensordot(tf.transpose(data), data, axes=1))
 
-new_data = tf.transpose(tf.tensordot(tf.transpose(eigen_vectors), tf.transpose(data), axes=1)).numpy()
+print(data.shape)
+covariance = np.cov(np.transpose(data))
+
+print(covariance.shape)
+
+eigen_values, eigen_vectors = np.linalg.eig(covariance)
+
+eigen_vectors = eigen_vectors[:, :3]
+
+print(f"Eigenvectors shape: {eigen_vectors.shape}")
+print(f"Data sgape: {data.shape}")
+
+new_data = np.matmul(data, eigen_vectors)
+
+print(f"PC shape: {new_data.shape}")
+
+
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+
+#ddf
+#eigen_values, eigen_vectors = tf.linalg.eigh(tf.tensordot(tf.transpose(data), data, axes=1))
+
+#new_data = tf.transpose(tf.tensordot(tf.transpose(eigen_vectors), tf.transpose(data), axes=1)).numpy()
 for i, vector in enumerate(new_data):
 	if df[dummy_columns[0]][i] == 1:
-		plt.scatter(vector[0], vector[1], s = 10, c = ['red'])
+		ax.scatter(vector[0], vector[1], vector[2], s = 10, c = ['red'])
 
 for i, vector in enumerate(new_data):
 	if df[dummy_columns[0]][i] != 1:
-		plt.scatter(vector[0], vector[1], s = 10, c = ['blue'])
+		ax.scatter(vector[0], vector[1], vector[2], s = 10, c = ['blue'])
 
-plt.savefig(os.path.join(PATH_TO_IMAGES, f'pca.png'))
+plt.savefig(os.path.join(PATH_TO_IMAGES, f'pca3d.png'))
 #print(new_data[0])
 
 # Numberize labels
