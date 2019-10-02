@@ -6,7 +6,6 @@ from utils.filters import split_by_label_values
 
 import tensorflow as tf
 import pandas as pd
-from keras.callbacks import ModelCheckpoint
 
 from tensorflow.compat.v1 import ConfigProto
 from tensorflow.compat.v1 import InteractiveSession, Session
@@ -57,10 +56,10 @@ df.dropna(inplace = True, how = 'any')
 df = df.reset_index(drop=True)
 
 # Add dummy columns
-#df = pd.get_dummies(df, columns = ['type'])
+df = pd.get_dummies(df, columns = ['type'])
 
 # Update labels
-#dummy_columns = ['type_Command', 'type_IndirectCommand', 'type_Request']
+dummy_columns = ['type_Command', 'type_IndirectCommand', 'type_Request']
 #df[dummy_columns] = df[dummy_columns].replace({0: -1})
 
 # Output loaded dataset
@@ -69,74 +68,49 @@ print(df)
 print("Datatypes of columns:")
 print(df.dtypes)
 
-types = df.type.unique()
-type_dict = dict(zip(types, range(len(types))))
-df.type = df.replace({"type": type_dict})
-
-DATASET_SIZE = df.shape[0]
-
 #Next we could create tf.data.Dataset if we would use eager execution
-dataset = tf.data.Dataset.from_tensor_slices((pd.DataFrame(df.text.tolist()).to_numpy(), tf.one_hot(df.type.tolist(), 3)))
+dataset = tf.data.Dataset.from_tensor_slices((pd.DataFrame(df.text.tolist()).to_numpy(), df[dummy_columns[0]]))
 
-#print(dir(dataset))
+for predictors, label in dataset.take(5):
+ 	print(f"Predictors: {predictors}; Label: {label}")
 
-train_size = int(0.7 * DATASET_SIZE)
-val_size = int(0.15 * DATASET_SIZE)
-test_size = int(0.15 * DATASET_SIZE)
 
-dataset = dataset.shuffle(10)
-train = dataset.take(train_size)
-dataset = dataset.skip(train_size)
-test = dataset.take(test_size)
-dataset = dataset.skip(test_size)
-val = dataset.take(val_size)
+#print(tft.pca(pd.DataFrame(df.text.tolist()).to_numpy()))
+data = pd.DataFrame(df.text.tolist()).to_numpy()
 
-class LogisticRegression(tf.keras.Model):
-	def __init__(self, num_classes):
-		super(LogisticRegression, self).__init__() # call the constructor of the parent class (Model)
-		self.dense = tf.keras.layers.Dense(num_classes) #create an empty layer called dense with 10 elements.
-	
-	def call(self, inputs, training=None, mask=None): # required for our forward pass
-		output = self.dense(inputs) # copy training inputs into our layer
-		# softmax op does not exist on the gpu, so force execution on the CPU
-		#with tf.device('/cpu:0'):
-		output = tf.nn.softmax(output) # softmax is near one for maximum value in output
-		# and near zero for the other values.
-		return output
+print(data.shape)
+covariance = np.cov(np.transpose(data))
 
-# build the model
-model = LogisticRegression(3)
-# compile the model
-#optimiser = tf.train.GradientDescentOptimizer(learning_rate)
-optimiser =tf.keras.optimizers.Adam() #not supported in eager execution mode.
-model.compile(optimizer=optimiser, loss='categorical_crossentropy', metrics=['accuracy'], )
-# TF Keras tries to use the entire dataset to determine the shape without this step when using .fit()
-# So, use one sample of the provided input dataset size to determine input/output shapes for the model
-dummy_x = tf.zeros((1, 100))
-print(dummy_x)
-model.call(dummy_x)
-checkpointer = ModelCheckpoint(filepath="./model.weights.best.hdf5", verbose=2, save_best_only=True, save_weights_only=True)
-# train the model
-print(dir(train))
+print(covariance.shape)
 
-trn_x = np.array([list(sample.numpy()) for sample,_ in train])
-trn_y = np.array([list(label.numpy()) for _,label in train])
-#print(np.array(trn_x).shape)
-val_x = np.array([list(sample.numpy()) for sample,_ in val])
-val_y = np.array([list(label.numpy()) for _,label in val])
+eigen_values, eigen_vectors = np.linalg.eig(covariance)
 
-tst_x = np.array([list(sample.numpy()) for sample,_ in test])
-tst_y = np.array([list(label.numpy()) for _,label in test])
+eigen_vectors = eigen_vectors[:, :3]
 
-#print([list(label.numpy()) for _,label in train])
-model.fit(trn_x, trn_y, batch_size=128, epochs=30, validation_data=(val_x, val_y), callbacks=[checkpointer], verbose=2)
-#load model with the best validation accuracy
-model.load_weights("./model.weights.best.hdf5")
-# evaluate the model on the test set
-scores = model.evaluate(tst_x, tst_y, batch_size, verbose=2)
-print("Final test loss and accuracy :", scores)
-#y_predictions = model.predict(x_test)
+print(f"Eigenvectors shape: {eigen_vectors.shape}")
+print(f"Data sgape: {data.shape}")
 
+new_data = np.matmul(data, eigen_vectors)
+
+print(f"PC shape: {new_data.shape}")
+
+
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+
+#ddf
+#eigen_values, eigen_vectors = tf.linalg.eigh(tf.tensordot(tf.transpose(data), data, axes=1))
+
+#new_data = tf.transpose(tf.tensordot(tf.transpose(eigen_vectors), tf.transpose(data), axes=1)).numpy()
+for i, vector in enumerate(new_data):
+	if df[dummy_columns[0]][i] == 1:
+		ax.scatter(vector[0], vector[1], vector[2], s = 10, c = ['red'])
+
+for i, vector in enumerate(new_data):
+	if df[dummy_columns[0]][i] != 1:
+		ax.scatter(vector[0], vector[1], vector[2], s = 10, c = ['blue'])
+
+plt.savefig(os.path.join(PATH_TO_IMAGES, f'pca3d.png'))
 #print(new_data[0])
 
 # Numberize labels
