@@ -20,7 +20,7 @@ if gpus:
     print(e)
 
 
-path_to_file = "datasets/aneks-shrank.txt"
+path_to_file = "datasets/aneks-preprocessed.txt"
 preview_length = 20
 seq_length = 100
 
@@ -136,7 +136,7 @@ checkpoint_callback=tf.keras.callbacks.ModelCheckpoint(
     filepath=checkpoint_prefix,
     save_weights_only=True)
 
-EPOCHS=3
+EPOCHS=20
 
 print(idx2char)
 #history = model.fit(dataset, epochs=EPOCHS, callbacks=[checkpoint_callback])
@@ -190,5 +190,5 @@ def generate_text(model, start_string):
   return (start_string + ''.join(text_generated))
 
 
-print(generate_text(model, start_string=u"как заставить гея трахнуть"))
+print(generate_text(model, start_string=u"купил мужик шляпу"))
 
