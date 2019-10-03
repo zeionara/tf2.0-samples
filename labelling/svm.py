@@ -40,6 +40,8 @@ NUMER_OF_BATCHES = 10
 # Allow allocation of lots of memory
 configp = ConfigProto()
 configp.gpu_options.allow_growth = True
+sess = tf.Session(config=config)
+set_session(sess)
 
 tf.compat.v1.disable_eager_execution()
 
